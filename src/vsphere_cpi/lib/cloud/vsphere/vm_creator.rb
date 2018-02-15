@@ -31,8 +31,10 @@ module VSphereCloud
         ['snapshot', 'datastore'],
         ensure_all: true
       )
-
-      datastore = Resources::Datastore.build_from_client(@client, replicated_stemcell_properties['datastore']).first if datastore_cluster #create vm/ephemeral disk on same datastore as stemcell if Datastore Cluster is being used.
+      #create vm/ephemeral disk on same datastore as stemcell if Datastore Cluster is being used.
+      if datastore_cluster
+        datastore = Resources::Datastore.build_from_client(@client, replicated_stemcell_properties['datastore']).first
+      end
       replicated_stemcell_vm = Resources::VM.new(vm_config.stemcell_cid, replicated_stemcell_vm_mob, @client, @logger)
       snapshot = replicated_stemcell_properties['snapshot']
 

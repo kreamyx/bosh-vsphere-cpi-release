@@ -1008,46 +1008,53 @@ module VSphereCloud
         allow(relocation_spec).to receive(:disk_move_type=).with('createNewChildDiskBacking').and_return('createNewChildDiskBacking')
       end
 
-      it 'clones vm when both datastore and StoragePod option is not supplied' do
-        expect(relocation_spec).to receive(:datastore=).never
-        expect(vm_mob).to receive(:clone).with(vm_folder_mob, vm_config.name, an_instance_of(VimSdk::Vim::Vm::CloneSpec)).and_return(fake_vm)
-        vsphere_cloud.clone_vm(
-          vm_mob,
-          vm_config.name,
-          vm_folder_mob,
-          resource_pool.mob,
-          linked: true,
-          config: config_spec
-        )
+      context 'when both datastore and StoragePod option is not supplied' do
+        it 'clones the vm' do
+          expect(relocation_spec).to receive(:datastore=).never
+          expect(vm_mob).to receive(:clone).with(vm_folder_mob, vm_config.name, an_instance_of(VimSdk::Vim::Vm::CloneSpec)).and_return(fake_vm)
+          vsphere_cloud.clone_vm(
+            vm_mob,
+            vm_config.name,
+            vm_folder_mob,
+            resource_pool.mob,
+            linked: true,
+            config: config_spec
+          )
+        end
       end
-      it 'clones vm on to supplied datastore' do
-        allow(relocation_spec).to receive(:datastore=).with(datastore).and_return(datastore)
-        expect(vm_mob).to receive(:clone).with(vm_folder_mob, vm_config.name, an_instance_of(VimSdk::Vim::Vm::CloneSpec)).and_return(fake_vm)
-        vsphere_cloud.clone_vm(
-          vm_mob,
-          vm_config.name,
-          vm_folder_mob,
-          resource_pool.mob,
-          linked: true,
-          config: config_spec,
-          datastore: datastore
-        )
+      context 'with only datastore option' do
+        it 'clones vm on to supplied datastore' do
+          allow(relocation_spec).to receive(:datastore=).with(datastore).and_return(datastore)
+          expect(vm_mob).to receive(:clone).with(vm_folder_mob, vm_config.name, an_instance_of(VimSdk::Vim::Vm::CloneSpec)).and_return(fake_vm)
+          vsphere_cloud.clone_vm(
+            vm_mob,
+            vm_config.name,
+            vm_folder_mob,
+            resource_pool.mob,
+            linked: true,
+            config: config_spec,
+            datastore: datastore
+          )
+        end
       end
-      it 'clones vm on to supplied StoragePod using SDRS recommendations' do
-        expect(vm_mob).to receive(:clone).never
-        allow(vcenter_client).to receive_message_chain(:service_instance, :content, :storage_resource_manager).and_return(srm)
-        expect(srm).to receive(:recommend_datastores).with(an_instance_of(VimSdk::Vim::StorageDrs::StoragePlacementSpec)).and_return(storage_placement_result)
-        expect(storage_placement_result).to receive(:recommendations).and_return([recommendation])
-        expect(srm).to receive(:apply_recommendation).with(recommendation.key).and_return(apply_recommendation_result)
-        vsphere_cloud.clone_vm(
-          vm_mob,
-          vm_config.name,
-          vm_folder_mob,
-          resource_pool.mob,
-          linked: true,
-          config: config_spec,
-          datastore_cluster: datastore_cluster
-        )
+      context 'when datastore_cluster is also specified' do
+        it 'clones vm using SDRS recommendations' do
+          expect(vm_mob).to receive(:clone).never
+          allow(vcenter_client).to receive_message_chain(:service_instance, :content, :storage_resource_manager).and_return(srm)
+          expect(srm).to receive(:recommend_datastores).with(an_instance_of(VimSdk::Vim::StorageDrs::StoragePlacementSpec)).and_return(storage_placement_result)
+          expect(storage_placement_result).to receive(:recommendations).and_return([recommendation])
+          expect(srm).to receive(:apply_recommendation).with(recommendation.key).and_return(apply_recommendation_result)
+          vsphere_cloud.clone_vm(
+            vm_mob,
+            vm_config.name,
+            vm_folder_mob,
+            resource_pool.mob,
+            linked: true,
+            config: config_spec,
+            datastore_cluster: datastore_cluster,
+            datastore: datastore
+          )
+        end
       end
     end
 

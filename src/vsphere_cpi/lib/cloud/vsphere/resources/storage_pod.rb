@@ -25,9 +25,10 @@ module VSphereCloud
 
       def self.find(name, datacenter_name, client)
         datacenter_mob = client.find_by_inventory_path(datacenter_name)
-        raise "Datacenter '#{datacenter_name}' not found" if datacenter_mob.nil?
+        raise "Datacenter '#{datacenter_name}' not found." unless datacenter_mob
         datastore_clusters =  datacenter_mob.datastore_folder.child_entity.select {|ce| ce.class == VimSdk::Vim::StoragePod}
         datastore_cluster = datastore_clusters.select { |sp| sp.name == name }.first
+        raise "Storage Pod '#{name}' not found." unless datastore_cluster
         self.new(datastore_cluster)
       end
     end
