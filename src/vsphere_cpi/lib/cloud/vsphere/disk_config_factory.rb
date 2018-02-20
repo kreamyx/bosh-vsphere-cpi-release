@@ -54,7 +54,7 @@ module VSphereCloud
 
     #TODO extract all this out into a module as its common code
     def sdrs_enabled_datastore_clusters
-      datastore_clusters.map do |datastore_cluster_spec|
+      @sdrs_enabled_datastore_clusters ||= datastore_clusters.map do |datastore_cluster_spec|
         VSphereCloud::Resources::StoragePod.find(datastore_cluster_spec.keys.first, @datacenter.name, @client)
       end.select(&:drs_enabled?)
     end
