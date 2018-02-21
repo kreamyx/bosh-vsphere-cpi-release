@@ -236,6 +236,7 @@ module VSphereCloud
         disk_config_factory = DiskConfigFactory.new(
           datacenter: @datacenter,
           vm_type: vm_type,
+          client: @client
         )
         disk_configurations = existing_disk_cids.map do |cid|
           disk_config_factory.disk_config_from_persistent_disk(DirectorDiskCID.new(cid))
@@ -474,6 +475,7 @@ module VSphereCloud
         disk_config_factory = DiskConfigFactory.new(
           datacenter: @datacenter,
           disk_pool: cloud_properties,
+          client: @client
         )
         disk_config = disk_config_factory.new_persistent_disk_config(size_in_mb)
         @logger.info("Using persistent disk datastore pattern: #{disk_config.target_datastore_pattern}")
