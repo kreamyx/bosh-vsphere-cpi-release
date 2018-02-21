@@ -12,10 +12,10 @@ module VSphereCloud
 
     let(:datastore1) {double('Datastore', name: 'sp-1-ds-1')}
     let(:datastore2) {double('Datastore', name: 'sp-2-ds-1')}
-    let(:datastore_cluster_mob1) { double('StoragePodMob', child_entity: [datastore1])}
-    let(:datastore_cluster_mob2) { double('StoragePodMob', child_entity: [datastore2])}
-    let(:sdrs_enabled_datastore_cluster1) { double('StoragePod', drs_enabled?: true, mob: datastore_cluster_mob1)}
-    let(:sdrs_enabled_datastore_cluster2) { double('StoragePod', drs_enabled?: true, mob: datastore_cluster_mob2)}
+    let(:datastore_cluster_mob1) { double('StoragePodMob', child_entity: [datastore1], __mo_id__: 'storage-pod-1')}
+    let(:datastore_cluster_mob2) { double('StoragePodMob', child_entity: [datastore2], __mo_id__: 'storage-pod-2')}
+    let(:sdrs_enabled_datastore_cluster1) { double('StoragePod', drs_enabled?: true, mob: datastore_cluster_mob1, free_space: 2048)}
+    let(:sdrs_enabled_datastore_cluster2) { double('StoragePod', drs_enabled?: true, mob: datastore_cluster_mob2, free_space: 120000)}
     let(:sdrs_disabled_datastore_cluster) { double('StoragePod', drs_enabled?: false)}
 
     before do
@@ -232,13 +232,13 @@ module VSphereCloud
           let(:disk_config) do
             instance_double(VSphereCloud::DiskConfig,
                             size: 1024,
-                            target_datastore_pattern: '^(ds\-1|ds\-2|sp\-1\-ds\-1)$',
+                            target_datastore_pattern: '^(ds\-1|ds\-2|sp\-2\-ds\-1)$',
             )
           end
 
-          it 'includes a pattern constructed from cloud_properties along with datastores from 1st sdrs enabled datastore cluster' do
+          it 'includes a pattern constructed from cloud_properties along with datastores from best sdrs enabled datastore cluster' do
             expect(VSphereCloud::DiskConfig).to receive(:new).with(
-              size: 1024, target_datastore_pattern: '^(ds\-1|ds\-2|sp\-1\-ds\-1)$',
+              size: 1024, target_datastore_pattern: '^(ds\-1|ds\-2|sp\-2\-ds\-1)$',
             ).and_return(disk_config)
 
             returned_disk_config = disk_config_factory.new_persistent_disk_config(1024)
@@ -258,9 +258,9 @@ module VSphereCloud
             )
           end
 
-          it 'includes the datastores from 1st sdrs enabled datastore cluster' do
+          it 'includes the datastores from the best sdrs enabled datastore cluster' do
             expect(VSphereCloud::DiskConfig).to receive(:new).with(
-              size: 1024, target_datastore_pattern: '^(sp\-1\-ds\-1)$',
+              size: 1024, target_datastore_pattern: '^(sp\-2\-ds\-1)$',
             ).and_return(disk_config)
 
             returned_disk_config = disk_config_factory.new_persistent_disk_config(1024)

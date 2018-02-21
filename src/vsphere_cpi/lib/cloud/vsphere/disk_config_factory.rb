@@ -52,14 +52,12 @@ module VSphereCloud
       @disk_pool['datastores'] && !@disk_pool['datastores'].empty?
     end
 
-    #TODO extract all this out into a module as its common code
     def sdrs_enabled_datastore_clusters(datastores_spec)
       @sdrs_enabled_datastore_clusters ||= datastore_clusters(datastores_spec).map do |datastore_cluster_spec|
         VSphereCloud::Resources::StoragePod.find(datastore_cluster_spec.keys.first, @datacenter.name, @client)
       end.select(&:drs_enabled?)
     end
 
-    #TODO extract all this out into a module as its common code
     def datastore_clusters(datastores_spec)
       datastore_clusters_spec = []
       return datastore_clusters_spec unless datastores_spec && datastores_spec.any?
@@ -102,14 +100,23 @@ module VSphereCloud
         sdrs_enabled_datastore_clusters = sdrs_enabled_datastore_clusters(@disk_pool['datastores'])
         #pick best sdrs enabled datastore cluster and include its datastores in the set to be used for persistent disk
         if sdrs_enabled_datastore_clusters.any?
-          #TODO pick best datastore_cluster
-          datastore_cluster = sdrs_enabled_datastore_clusters.first
+          datastore_cluster = weighted_random_sort(sdrs_enabled_datastore_clusters).first
           datastores = datastore_cluster.mob.child_entity
           escaped_names << datastores.map { |datastore| Regexp.escape(datastore.name) }
         end
         escaped_names = escaped_names.flatten.compact
       end
       escaped_names.empty? ?  @datacenter.persistent_pattern : "^(#{escaped_names.join('|')})$"
+    end
+
+    def weighted_random_sort(storage_options)
+      random_hash = {}
+      storage_options.each do |storage_option|
+        random_hash[storage_option.mob.__mo_id__] = Random.rand * storage_option.free_space
+      end
+      storage_options.sort do |x,y|
+        random_hash[y.mob.__mo_id__] <=> random_hash[x.mob.__mo_id__]
+      end
     end
   end
 end
