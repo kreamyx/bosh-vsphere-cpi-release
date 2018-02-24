@@ -168,7 +168,7 @@ module VSphereCloud
     # using weight based algorithm on free space to choose the storage
     # if datastore clusters are provided and none of them have sdrs enabled log an error
     def choose_storage(vm_config)
-      storage_options = [ vm_config.cluster.accessible_datastores[vm_config.ephemeral_datastore_name]]
+      storage_options = [vm_config.cluster.accessible_datastores[vm_config.ephemeral_datastore_name]]
       if vm_config.datastore_clusters.any?
         sdrs_enabled_datastore_clusters = vm_config.sdrs_enabled_datastore_clusters
         @logger.info("None of the datastore clusters have sdrs enabled") unless sdrs_enabled_datastore_clusters.any?
@@ -177,14 +177,8 @@ module VSphereCloud
       weighted_random_sort(storage_options.flatten).first
     end
 
-    def weighted_random_sort(storage_options)
-      random_hash = {}
-      storage_options.each do |storage_option|
-        random_hash[storage_option.mob.__mo_id__] = Random.rand * storage_option.free_space
-      end
-      storage_options.sort do |x,y|
-        random_hash[y.mob.__mo_id__] <=> random_hash[x.mob.__mo_id__]
-      end
+    def weighted_random_sort(storage_objects)
+      storage_objects.max_by { |object| Random.rand * object.free_space }
     end
   end
 end

@@ -58,20 +58,6 @@ module VSphereCloud
       end.select(&:drs_enabled?)
     end
 
-    def datastore_clusters(datastores_spec)
-      datastore_clusters_spec = []
-      return datastore_clusters_spec unless datastores_spec && datastores_spec.any?
-      datastores_spec.each do |entry|
-        hash = Hash.try_convert(entry)
-        next if hash.nil?
-        if hash.key?('clusters')
-          datastore_clusters_spec = hash['clusters']
-          break
-        end
-      end
-      datastore_clusters_spec
-    end
-
     #datastores is a list of datastores and datastore_clusters. Eg.
     #[datastore1, clusters: [{datastore_cluster1: {}, datatore_cluster2: {}}]]
     def target_ephemeral_pattern
@@ -107,16 +93,6 @@ module VSphereCloud
         escaped_names = escaped_names.flatten.compact
       end
       escaped_names.empty? ?  @datacenter.persistent_pattern : "^(#{escaped_names.join('|')})$"
-    end
-
-    def weighted_random_sort(storage_options)
-      random_hash = {}
-      storage_options.each do |storage_option|
-        random_hash[storage_option.mob.__mo_id__] = Random.rand * storage_option.free_space
-      end
-      storage_options.sort do |x,y|
-        random_hash[y.mob.__mo_id__] <=> random_hash[x.mob.__mo_id__]
-      end
     end
   end
 end
