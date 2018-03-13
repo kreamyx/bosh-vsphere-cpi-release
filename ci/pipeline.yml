@@ -30,6 +30,8 @@ jobs:
       - get: bosh-cpi-src
         trigger: true
         passed: [build-candidate]
+      - get: 5h
+        trigger: true
       - do:
         - put: environment
           resource: nimbus-environments-6.0-NSXV
@@ -74,6 +76,8 @@ jobs:
       - get: bosh-cpi-src
         trigger: true
         passed: [build-candidate]
+      - get: 5h
+        trigger: true
       - do:
         - put: environment
           resource: nimbus-environments-6.5-NSXV
@@ -117,6 +121,8 @@ jobs:
       - get: bosh-cpi-src
         trigger: true
         passed: [build-candidate]
+      - get: 5h
+        trigger: true
       - do:
         - put: environment
           resource: nimbus-environments-5.5
@@ -161,6 +167,8 @@ jobs:
       - get: bosh-cpi-src
         trigger: true
         passed: [build-candidate]
+      - get: 5h
+        trigger: true
       - do:
         - put: environment
           resource: nimbus-environments-6.5
@@ -205,6 +213,8 @@ jobs:
       - get: bosh-cpi-src
         trigger: true
         passed: [build-candidate]
+      - get: 5h
+        trigger: true
       - do:
         - put: environment
           resource: nimbus-environments-6.0
@@ -248,6 +258,8 @@ jobs:
       - get: bosh-cpi-src
         trigger: true
         passed: [build-candidate]
+      - get: 5h
+        trigger: true
       - do:
         - put: environment
           resource: nimbus-environments-6.5
@@ -267,6 +279,7 @@ jobs:
     serial: true
     plan:
       - aggregate:
+        - {get: 5h,                       trigger: true}
         - {get: cpi-release,              trigger: false, resource: bosh-cpi-artifacts, passed: [build-candidate]}
         - {get: environment,              trigger: true,  passed: [lock-and-extend-bats], resource: nimbus-environments-6.5 }
         - {get: bosh-release,             trigger: false, resource: old-bosh-release}
@@ -366,6 +379,10 @@ resource_types:
       repository: cfcommunity/slack-notification-resource
 
 resources:
+  - name: 5h
+    type: time
+    source:
+      interval: 5h
   - name: notify
     type: slack-notification
     source:
