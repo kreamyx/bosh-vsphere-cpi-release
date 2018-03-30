@@ -28,6 +28,8 @@ describe 'CPI', nsx_transformers: true do
   end
   let(:nsgroup_name_1) { "BOSH-CPI-test-#{SecureRandom.uuid}" }
   let(:nsgroup_name_2) { "BOSH-CPI-test-#{SecureRandom.uuid}" }
+  let(:server_pool_name_1) { "BOSH-CPI-test-#{SecureRandom.uuid}" }
+  let(:server_pool_name_2) { "BOSH-CPI-test-#{SecureRandom.uuid}" }
   let(:vm_type) do
     {
       'ram' => 512,
@@ -199,45 +201,53 @@ describe 'CPI', nsx_transformers: true do
       end
     end
     context 'when load balancers are specified' do
-      before do
-        @nsxt_pool_name = fetch_property('BOSH_VSPHERE_CPI_NSXT_POOL_NAME')
-      end
       let(:vm_type) do
         {
           'ram' => 512,
           'disk' => 2048,
           'cpu' => 1,
           'nsxt' => {
-            'lbs' => [
-              {
-                'pool_name' => nsxt_server_pool_name,
-                'port' => 80
+            'lbs' => {
+                'server_pools' => [
+                  {
+                    'pool_name' => server_pool_1.display_name,
+                    'port' => 80
+                  },
+                  {
+                    'pool_name' => server_pool_2.display_name,
+                    'port' => 80
+                  }
+                ]
               }
-            ]
+            }
           }
-        }
       end
 
-      after do
-        remove_pool_members(@nsxt_pool_name)
-      end
-      context 'and server pool does not exist' do
+      context 'but atleast one server pool does not exist' do
         let(:nsxt_server_pool_name) { 'vcpi-test-server-pool' }
         it 'raises an error' do
           expect do
-            simple_vm_lifecycle(cpi, '', vm_type, network_spec)
+            simple_vm_lifecycle(cpi, @nsxt_opaque_vlan_1, vm_type)
           end.to raise_error(VSphereCloud::ServerPoolNotFound)
         end
       end
-      context 'and server pool exists' do
-        let(:nsxt_server_pool_name) {@nsxt_pool_name}
-        it 'adds vm to existing server pool' do
-          simple_vm_lifecycle(cpi, '', vm_type, network_spec) do |vm_id|
+      context 'and all server pool exists' do
+        let(:server_pool_1) { create_server_pool(server_pool_name_1) }
+        let(:server_pool_2) { create_server_pool(server_pool_name_2) } #dynamic server pool add nsgroup to this
+
+        after do
+          delete_server_pool(server_pool_1)
+          delete_server_pool(server_pool_2)
+        end
+
+        it 'adds vm to existing server pools' do
+          simple_vm_lifecycle(cpi, @nsxt_opaque_vlan_1, vm_type) do |vm_id|
             vm = cpi.vm_provider.find(vm_id)
             expect(vm).to_not be_nil
-            require 'byebug'
-            byebug
-            expect(get_pool_members_ip_addresses(nsxt_server_pool_name)).to include('192.168.111.10') #TODO find out how to fetch vm_ip
+            vm_ip = vm.mob.guest&.ip_address
+            expect(vm_ip).to_not be_nil
+            expect(get_pool_members_ip_addresses(server_pool_1)).to include(vm_ip)
+            expect(get_pool_members_ip_addresses(server_pool_2)).to include(vm_ip)
           end
         end
       end
@@ -352,17 +362,25 @@ describe 'CPI', nsx_transformers: true do
     results.map { |member| member.target_id }
   end
 
-  def get_pool_members_ip_addresses(pool_name)
-    services_svc = NSXT::ServicesApi.new(nsxt)
-    server_pools = services_svc.list_load_balancer_pools
-    matching_server_pools = server_pools.select {|pool| pool.name == pool_name}
-    members = matching_server_pools.collect{|server_pool| server_pool.members}.flatten
-    members.map {|member| member.ip_address}
+  def create_server_pool(pool_name, nsgroup=nil)
+    lb_pool = NSXT::LbPool.new(display_name: pool_name)
+    lb_pool.member_group = NSXT::PoolMemberGroup.new(grouping_object: nsgroup, max_ip_list_size: 2) if nsgroup
+    services_svc.create_load_balancer_pool(lb_pool)
   end
-  def remove_pool_members(pool_name)
-    services_svc = NSXT::ServicesApi.new(nsxt)
-    services_svc.list_load_balancer_pools
+
+  def get_pool_members_ip_addresses(server_pool)
+    server_pool = services_svc.read_load_balancer_pool(server_pool.id)
+    server_pool.members&.map(&:ip_address) || []
   end
+
+  def delete_server_pool(server_pool)
+    services_svc.delete_load_balancer_pool(server_pool.id)
+  end
+
+  def services_svc
+    NSXT::ServicesApi.new(nsxt)
+  end
+
   def retryer
     Bosh::Retryable.new(
       tries: 20,
