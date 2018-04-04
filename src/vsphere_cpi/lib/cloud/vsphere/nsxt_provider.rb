@@ -54,6 +54,16 @@ module VSphereCloud
     end
   end
 
+  class ServerPoolsNotFound < StandardError
+    def initialize(*display_names)
+      @display_names = display_names
+    end
+
+    def to_s
+      "ServerPools [#{@display_names.join(', ')}] was not found in NSX-T"
+    end
+  end
+
   class InvalidLogicalPortError < StandardError
     def initialize(logical_port)
       @logical_port = logical_port
@@ -103,7 +113,7 @@ module VSphereCloud
     end
 
     def add_vm_to_nsgroups(vm, ns_groups)
-      return if ns_groups.nil? || ns_groups.empty?
+      return if ns_groups.empty?
       return if nsxt_nics(vm).empty?
 
       @logger.info("Adding vm '#{vm.cid}' to NSGroups: #{ns_groups}")
@@ -200,10 +210,10 @@ module VSphereCloud
       end
     end
 
-    def add_vm_to_lbs(vm, load_balancers)
+    def add_vm_to_server_pools(vm, load_balancers)
       server_pools = load_balancers['server_pools']
       return if server_pools.nil? ||  server_pools.empty?
-      load_balancer_pools = retrieve_load_balancer_pools(server_pools)
+      load_balancer_pools = retrieve_server_pools(server_pools)
       vm_ip = vm.mob.guest&.ip_address
       while vm_ip.nil?
         sleep(5)
@@ -219,12 +229,23 @@ module VSphereCloud
       end
     end
 
-    def retrieve_load_balancer_pools(server_pools)
-      pool_name = server_pools.first['pool_name']
-      server_pools = services_svc.list_load_balancer_pools.results
-      server_pools.select do |server_pool|
-        server_pool.display_name == pool_name
+    def retrieve_server_pools(server_pools)
+      return [] if server_pools.empty?
+
+      server_pools_by_name = services_svc.list_load_balancer_pools.results.each_with_object({}) do |server_pool, hash|
+        hash[server_pool.display_name] = server_pool
       end
+      missing = server_pools.reject do |server_pool|
+        server_pools_by_name.key?(server_pool['name'])
+      end
+      raise ServerPoolsNotFound.new(*missing) unless missing.empty?
+
+      static_server_pools, dynamic_server_pools = [],[]
+      server_pools.each do |server_pool|
+        server_pool_name = server_pool['name']
+        server_pools_by_name[server_pool_name].member_group ? dynamic_server_pools << server_pools_by_name[server_pool_name] : static_server_pools << server_pools_by_name[server_pool_name]
+      end
+      return static_server_pools, dynamic_server_pools
     end
 
     private
