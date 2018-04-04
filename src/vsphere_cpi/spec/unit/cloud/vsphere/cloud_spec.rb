@@ -767,7 +767,7 @@ module VSphereCloud
             'ram' => 1024,
             'disk' => 4096,
             'nsxt' => {
-              'nsgroups' => %w(fake-nsgroup-1 fake-nsgroup-2),
+              'ns_groups' => %w(fake-nsgroup-1 fake-nsgroup-2),
               'vif_type' => 'PARENT',
             }
           }
@@ -781,7 +781,7 @@ module VSphereCloud
         end
 
         it "adds the VM's logical port to NSGroups" do
-          expect(nsxt_provider).to receive(:add_vm_to_nsgroups).with(fake_vm, vm_type['nsxt']['nsgroups'])
+          expect(nsxt_provider).to receive(:add_vm_to_nsgroups).with(fake_vm, vm_type['nsxt']['ns_groups'])
           allow(nsxt_provider).to receive(:set_vif_type)
 
           vsphere_cloud.create_vm(
@@ -803,7 +803,7 @@ module VSphereCloud
               'ram' => 1024,
               'disk' => 4096,
               'nsxt' => {
-                'nsgroups' => %w(fake-nsgroup-1 fake-nsgroup-2),
+                'ns_groups' => %w(fake-nsgroup-1 fake-nsgroup-2),
                 'lb' => {
                   'server_pools' => [
                     {
@@ -835,7 +835,7 @@ module VSphereCloud
           it "adds vm to dynamic server pool's nsgroups" do
             allow(server_pool).to receive_message_chain(:member_group,:grouping_object, :target_display_name).and_return('test-nsgroup1')
             expect(nsxt_provider).to receive(:retrieve_server_pools).with(vm_type['nsxt']['lb']['server_pools']).and_return([nil,server_pools])
-            expected_nsgroups =  vm_type['nsxt']['nsgroups'] + ['test-nsgroup1']
+            expected_nsgroups =  vm_type['nsxt']['ns_groups'] + ['test-nsgroup1']
             expect(nsxt_provider).to receive(:add_vm_to_nsgroups).with(fake_vm, expected_nsgroups)
             allow(nsxt_provider).to receive(:set_vif_type)
 
@@ -894,7 +894,6 @@ module VSphereCloud
 
           it 'deletes created VM and raises error' do
             expect(vsphere_cloud).to receive(:delete_vm).with(fake_vm.cid)
-
             expect do
               vsphere_cloud.create_vm(
                 'fake-agent-id',

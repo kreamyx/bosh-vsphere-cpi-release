@@ -29,11 +29,11 @@ module VSphereCloud
     end
 
     def nsxt_server_pools
-      nsxt['lb']['server_pools'] || [] if nsxt && nsxt['lb']
+      nsxt['lb']['server_pools'] if nsxt && nsxt['lb']
     end
 
     def ns_groups
-      nsxt['nsgroups'] || [] if nsxt
+      nsxt['ns_groups'] if nsxt
     end
   end
 end
