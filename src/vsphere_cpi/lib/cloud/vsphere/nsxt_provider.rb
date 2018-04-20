@@ -246,8 +246,10 @@ module VSphereCloud
     # @param [array] server_pools It is an array of hashes with server_pool names and port
     def retrieve_server_pools(server_pools)
       return [] if server_pools.nil? || server_pools.empty?
+      
+      #Create a hash of server_pools with key as their name and value as list of matching server_pools
       server_pools_by_name = services_svc.list_load_balancer_pools.results.each_with_object({}) do |server_pool, hash|
-        hash[server_pool.display_name] = server_pool
+        hash[server_pool.display_name] ? hash[server_pool.display_name] << server_pool : hash[server_pool.display_name] = [server_pool]
       end
 
       missing = server_pools.reject do |server_pool|
@@ -259,8 +261,10 @@ module VSphereCloud
       server_pools.each do |server_pool|
         server_pool_name = server_pool['name']
         server_pool_port = server_pool['port']
-        server_pool_obj = server_pools_by_name[server_pool_name]
-        server_pool_obj.member_group ? dynamic_server_pools <<  server_pool_obj : static_server_pools << [server_pool_obj, server_pool_port]
+        matching_server_pools = server_pools_by_name[server_pool_name]
+        matching_server_pools.each do |matching_server_pool|
+          matching_server_pool.member_group ? dynamic_server_pools <<  matching_server_pool : static_server_pools << [matching_server_pool, server_pool_port]
+        end
       end
       return static_server_pools, dynamic_server_pools
     end

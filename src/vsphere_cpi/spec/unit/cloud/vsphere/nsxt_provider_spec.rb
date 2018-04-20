@@ -524,37 +524,45 @@ describe VSphereCloud::NSXTProvider do
       nsxt_provider.retrieve_server_pools(nil)
     end
     context 'when server_pools are present' do
-      let(:serverpool_1) do
-        NSXT::LbPool.new(:id => 'id-1', :display_name => 'test-static-serverpool-1')
+      let(:server_pool_1) do
+        NSXT::LbPool.new(id: 'id-1', display_name: 'test-static-serverpool')
       end
-      let(:serverpool_2) do
-        NSXT::LbPool.new(:id => 'id-2', :display_name => 'test-dynamic-serverpool-2')
+      let(:server_pool_2) do
+        NSXT::LbPool.new(id: 'id-2', display_name: 'test-static-serverpool')
+      end
+      let(:server_pool_3) do
+        NSXT::LbPool.new(id: 'id-2', display_name: 'test-dynamic-serverpool')
+      end
+      let(:server_pool_4) do
+        NSXT::LbPool.new(id: 'id-2', display_name: 'test-dynamic-serverpool')
       end
 
         let(:server_pools) do
         [
           {
-            'name' => 'test-static-serverpool-1',
+            'name' => 'test-static-serverpool',
             'port' => 80
           },
           {
-            'name' => 'test-dynamic-serverpool-2',
+            'name' => 'test-dynamic-serverpool',
             'port'  => 443
           }
         ]
       end
       it 'raises an error when any server pool cannot be found' do
-        expect(services_svc).to receive_message_chain(:list_load_balancer_pools, :results).and_return([serverpool_1])
+        expect(services_svc).to receive_message_chain(:list_load_balancer_pools, :results).and_return([server_pool_1])
         expect do
           nsxt_provider.retrieve_server_pools(server_pools)
         end.to raise_error(VSphereCloud::ServerPoolsNotFound)
       end
-      it 'returns list of static and dynamic server pools back' do
-        allow(serverpool_2).to receive(:member_group).and_return('test-nsgroup1')
-        expect(services_svc).to receive_message_chain(:list_load_balancer_pools, :results).and_return([serverpool_1, serverpool_2])
+      it 'returns list of all matching static and dynamic server pools back' do
+        allow(server_pool_3).to receive(:member_group).and_return('test-nsgroup1')
+        allow(server_pool_4).to receive(:member_group).and_return('test-nsgroup2')
+        expect(services_svc).to receive_message_chain(:list_load_balancer_pools, :results).and_return([server_pool_1, server_pool_2, server_pool_3, server_pool_4])
         static_server_pools, dynamic_server_pools = nsxt_provider.retrieve_server_pools(server_pools)
-        expect(static_server_pools.first).to eq([serverpool_1, 80])
-        expect(dynamic_server_pools).to eq([serverpool_2])
+        expect(static_server_pools).to include([server_pool_1, 80])
+        expect(static_server_pools).to include([server_pool_2, 80])
+        expect(dynamic_server_pools).to eq([server_pool_3, server_pool_4])
       end
     end
   end
