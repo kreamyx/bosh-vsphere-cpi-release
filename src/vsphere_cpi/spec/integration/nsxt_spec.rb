@@ -154,11 +154,9 @@ describe 'CPI', nsx_transformers: true do
       end
 
       context 'and all the NSGroups exist' do
-        let(:nsgroup_1) { create_nsgroup(nsgroup_name_1) }
-        let(:nsgroup_2) { create_nsgroup(nsgroup_name_2) }
+        let!(:nsgroup_1) { create_nsgroup(nsgroup_name_1) }
+        let!(:nsgroup_2) { create_nsgroup(nsgroup_name_2) }
         before do
-          expect(nsgroup_1).to_not be_nil
-          expect(nsgroup_2).to_not be_nil
           grouping_object_svc = NSXT::GroupingObjectsApi.new(nsxt)
           nsgroups = grouping_object_svc.list_ns_groups.results.select do |nsgroup|
             [nsgroup_name_1, nsgroup_name_2].include?(nsgroup.display_name)
@@ -210,19 +208,19 @@ describe 'CPI', nsx_transformers: true do
           'cpu' => 1,
           'nsxt' => {
             'lb' => {
-                'server_pools' => [
-                  {
-                    'name' => server_pool_name_1,
-                    'port' => port_no
-                  },
-                  {
-                    'name' => server_pool_name_2,
-                    'port' => 80
-                  }
-                ]
-              }
+              'server_pools' => [
+                {
+                  'name' => server_pool_name_1,
+                  'port' => port_no
+                },
+                {
+                  'name' => server_pool_name_2,
+                  'port' => 80
+                }
+              ]
             }
           }
+        }
       end
 
       context 'but atleast one server pool does not exists' do
@@ -234,13 +232,8 @@ describe 'CPI', nsx_transformers: true do
       end
       context 'and all server pools exist' do
         let(:nsgroup_1) { create_nsgroup(nsgroup_name_1) }
-        let(:server_pool_1) { create_static_server_pool(server_pool_name_1) }
-        let(:server_pool_2) { create_dynamic_server_pool(server_pool_name_2, nsgroup_1) }
-
-        before do
-          expect(server_pool_1).to_not be_nil
-          expect(server_pool_2).to_not be_nil
-        end
+        let!(:server_pool_1) { create_static_server_pool(server_pool_name_1) }
+        let!(:server_pool_2) { create_dynamic_server_pool(server_pool_name_2, nsgroup_1) }
 
         after do
           delete_server_pool(server_pool_1)
