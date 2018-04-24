@@ -565,4 +565,31 @@ describe VSphereCloud::NSXTProvider do
       end
     end
   end
+
+  describe '#remove_vm_from_server_pools' do
+    let(:server_pool_1) do
+      NSXT::LbPool.new(id: 'id-1', display_name: 'test-static-serverpool')
+    end
+    let(:server_pool_2) do
+      NSXT::LbPool.new(id: 'id-2', display_name: 'test-dynamic-serverpool')
+    end
+    before do
+      allow_any_instance_of(VSphereCloud::NSXTProvider).to receive(:services_svc).and_return(services_svc)
+      expect(services_svc).to receive_message_chain(:list_load_balancer_pools, :results).and_return([server_pool_1, server_pool_2])
+    end
+
+    it 'removes VM from all server pools' do
+      expect(services_svc).to receive(:remove_vm_from_server_pools).with(any_args).once
+      nsxt_provider.remove_vm_from_server_pools(vm)
+    end
+
+    context 'but VM does NOT have any NSX-T Opaque Network' do
+      let(:nics) { [opaque_non_nsxt, network_backing] }
+
+      it 'should no-op' do
+        # No call to client should be made
+        nsxt_provider.remove_vm_from_server_pools(vm)
+      end
+    end
+  end
 end

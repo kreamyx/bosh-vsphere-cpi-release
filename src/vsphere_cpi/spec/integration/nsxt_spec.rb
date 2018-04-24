@@ -231,7 +231,7 @@ describe 'CPI', nsx_transformers: true do
         end
       end
       context 'and all server pools exist' do
-        let(:nsgroup_1) { create_nsgroup(nsgroup_name_1) }
+        let!(:nsgroup_1) { create_nsgroup(nsgroup_name_1) }
         let!(:server_pool_1) { create_static_server_pool(server_pool_name_1) }
         let!(:server_pool_2) { create_dynamic_server_pool(server_pool_name_2, nsgroup_1) }
 
@@ -246,7 +246,8 @@ describe 'CPI', nsx_transformers: true do
             vm = cpi.vm_provider.find(vm_id)
             vm_ip = vm.mob.guest&.ip_address
             expect(vm_ip).to_not be_nil
-            verify_pool_member(server_pool_1, vm_ip, port_no)
+            server_pool_1_members = find_pool_members(server_pool_1, vm_ip, port_no)
+            expect(server_pool_1_members.count).to eq(1)
             verify_ports(vm_id, 1) do |lport|
               expect(lport).not_to be_nil
 
@@ -261,8 +262,10 @@ describe 'CPI', nsx_transformers: true do
               vm = cpi.vm_provider.find(vm_id)
               vm_ip = vm.mob.guest&.ip_address
               expect(vm_ip).to_not be_nil
-              verify_pool_member(server_pool_1, vm_ip, port_no)
-              verify_pool_member(server_pool_3, vm_ip, port_no)
+              server_pool_1_members = find_pool_members(server_pool_1, vm_ip, port_no)
+              expect(server_pool_1_members.count).to eq(1)
+              server_pool_3_members = find_pool_members(server_pool_3, vm_ip, port_no)
+              expect(server_pool_3_members.count).to eq(1)
             end
           ensure
             delete_server_pool(server_pool_3)
@@ -273,23 +276,38 @@ describe 'CPI', nsx_transformers: true do
   end
 
   describe 'on delete_vm' do
+    let(:port_no) {'80'}
     let(:vm_type) do
       {
         'ram' => 512,
         'disk' => 2048,
         'cpu' => 1,
-        'nsxt' => { 'ns_groups' => [nsgroup_name_1, nsgroup_name_2] }
+        'nsxt' => {
+          'ns_groups' => [nsgroup_name_2],
+          'lb' => {
+            'server_pools' => [
+              {
+                'name' => server_pool_name_1,
+                'port' => port_no
+              },
+              {
+                'name' => server_pool_name_2,
+                'port' => port_no
+              }
+            ]
+          }
+        }
       }
     end
 
     context 'when NSX-T is enabled' do
-      let(:nsgroup_1) { create_nsgroup(nsgroup_name_1) }
-      let(:nsgroup_2) { create_nsgroup(nsgroup_name_2) }
-      before do
-        expect(nsgroup_1).to_not be_nil
-        expect(nsgroup_2).to_not be_nil
-      end
+      let!(:nsgroup_1) { create_nsgroup(nsgroup_name_1) }
+      let!(:nsgroup_2) { create_nsgroup(nsgroup_name_2) }
+      let!(:server_pool_1) { create_static_server_pool(server_pool_name_1) }
+      let!(:server_pool_2) { create_dynamic_server_pool(server_pool_name_2, nsgroup_1) }
       after do
+        delete_server_pool(server_pool_1)
+        delete_server_pool(server_pool_2)
         delete_nsgroup(nsgroup_1)
         delete_nsgroup(nsgroup_2)
       end
@@ -316,8 +334,18 @@ describe 'CPI', nsx_transformers: true do
           expect(nsgroups).to eq([])
         end
       end
-      xit 'removes VM from all server pools' do
+      it 'removes VM from all server pools' do
+        simple_vm_lifecycle(cpi, @nsxt_opaque_vlan_1, vm_type) do |vm_id|
+          vm = cpi.vm_provider.find(vm_id)
+          vm_ip = vm.mob.guest&.ip_address
+          expect(vm_ip).to_not be_nil
 
+          server_poo1_1_members = find_pool_members(server_pool_1, vm_ip, port_no)
+          expect(server_poo1_1_members.count).to eq(1)
+        end
+
+        server_poo1_1_members = services_svc.read_load_balancer_pool(server_pool_1.id).members
+        expect(server_poo1_1_members).to be_nil
       end
     end
   end
@@ -395,12 +423,11 @@ describe 'CPI', nsx_transformers: true do
     services_svc.create_load_balancer_pool(server_pool)
   end
 
-  def verify_pool_member(server_pool, ip_address, port_no)
+  def find_pool_members(server_pool, ip_address, port_no)
     server_pool = services_svc.read_load_balancer_pool(server_pool.id)
-    matching_members = server_pool.members.select do |member|
+    server_pool.members.select do |member|
       member.ip_address == ip_address && member.port == port_no
     end
-    expect(matching_members.count).to eq(1)
   end
 
   def delete_server_pool(server_pool)
